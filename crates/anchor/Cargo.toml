@@ -1,0 +1,20 @@
+[package]
+name = "tee-anchor"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "BSV anchoring: batch TEA notes into Merkle roots terminated by the BSV block header chain."
+
+[dependencies]
+tee-bsv = { path = "../bsv" }
+tee-merkle = { path = "../merkle" }
+tee-tea = { path = "../tea" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+hex = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+tee-bsvcurve = { path = "../bsvcurve" }

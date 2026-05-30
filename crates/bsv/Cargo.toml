@@ -1,0 +1,17 @@
+[package]
+name = "tee-bsv"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "BSV double-SHA256 primitive and byte-order helpers for the triple-entry-evidence-bsv workspace."
+
+[dependencies]
+sha2 = { workspace = true }
+serde = { workspace = true, optional = true }
+
+[features]
+default = ["std"]
+std = ["sha2/std"]
+serde = ["dep:serde"]

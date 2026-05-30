@@ -1,0 +1,26 @@
+[package]
+name = "tee-cli"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Command-line interface for the triple-entry-evidence-bsv workspace."
+
+[[bin]]
+name = "tea-bsv"
+path = "src/main.rs"
+
+[dependencies]
+clap = { workspace = true }
+hex = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tee-bsv = { path = "../bsv" }
+tee-bsvcurve = { path = "../bsvcurve" }
+tee-tea = { path = "../tea" }
+tee-merkle = { path = "../merkle" }
+tee-proofstore = { path = "../proofstore" }
+tee-anchor = { path = "../anchor" }
+tee-disclosure = { path = "../disclosure" }

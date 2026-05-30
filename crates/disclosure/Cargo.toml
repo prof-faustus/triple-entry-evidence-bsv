@@ -1,0 +1,18 @@
+[package]
+name = "tee-disclosure"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Scoped disclosure envelope: signed authorisation releasing one field key to one named verifier under expiry and engagement bounds."
+
+[dependencies]
+tee-bsv = { path = "../bsv" }
+tee-bsvcurve = { path = "../bsvcurve" }
+tee-tea = { path = "../tea" }
+sha2 = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+hex = { workspace = true }
+thiserror = { workspace = true }

@@ -1,0 +1,16 @@
+[package]
+name = "tee-proofstore"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Selective Verification / proof-sharding (WO 2025/119666) over BSV transaction attributes."
+
+[dependencies]
+tee-bsv = { path = "../bsv" }
+tee-merkle = { path = "../merkle" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+hex = { workspace = true }
+thiserror = { workspace = true }

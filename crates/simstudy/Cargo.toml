@@ -1,0 +1,26 @@
+[package]
+name = "tee-simstudy"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Synthetic-population study: TEA notes anchored on BSV with fault injection and reconciliation."
+
+[[bin]]
+name = "tea-bsv-simstudy"
+path = "src/main.rs"
+
+[dependencies]
+clap = { workspace = true }
+hex = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+rand_chacha = { workspace = true, features = ["std"] }
+rand_core = { workspace = true }
+tee-bsv = { path = "../bsv" }
+tee-bsvcurve = { path = "../bsvcurve" }
+tee-tea = { path = "../tea" }
+tee-merkle = { path = "../merkle" }
+tee-proofstore = { path = "../proofstore" }
+tee-anchor = { path = "../anchor" }

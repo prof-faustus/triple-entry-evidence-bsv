@@ -1,0 +1,22 @@
+[package]
+name = "tee-bsvcurve"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "BSV curve arithmetic, ECDSA low-S RFC 6979 deterministic signing, ECDH, and HKDF-SHA256."
+
+[dependencies]
+k256 = { workspace = true }
+ecdsa = { workspace = true, features = ["alloc"] }
+elliptic-curve = { workspace = true }
+signature = { workspace = true }
+sha2 = { workspace = true }
+hmac = { workspace = true }
+thiserror = { workspace = true }
+tee-bsv = { path = "../bsv" }
+
+[features]
+default = ["std"]
+std = ["sha2/std", "hmac/std"]

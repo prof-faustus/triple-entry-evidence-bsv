@@ -1,0 +1,18 @@
+[package]
+name = "tee-tea"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Triple-entry evidence protocol: hierarchical keys, ECDH-derived linkage tags, per-field commitments, scoped disclosure."
+
+[dependencies]
+sha2 = { workspace = true }
+hmac = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+hex = { workspace = true }
+tee-bsv = { path = "../bsv" }
+tee-bsvcurve = { path = "../bsvcurve" }
+thiserror = { workspace = true }

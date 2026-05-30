@@ -1,0 +1,56 @@
+{
+  "seed": 2026053003,
+  "m_invoices": 200,
+  "n_payments": 190,
+  "inclusion_sample": 64,
+  "inclusion_detected": 64,
+  "selective_sample": 64,
+  "selective_detected": 64,
+  "predetermined_level_k": 3,
+  "faults": [
+    {
+      "class": "missing_payment",
+      "injected": 1,
+      "detected": 1,
+      "missed": 0,
+      "false_positives_clean": 0
+    },
+    {
+      "class": "linkage_mismatch",
+      "injected": 1,
+      "detected": 1,
+      "missed": 0,
+      "false_positives_clean": 0
+    },
+    {
+      "class": "orphan_note",
+      "injected": 1,
+      "detected": 1,
+      "missed": 0,
+      "false_positives_clean": 0
+    },
+    {
+      "class": "tampered_merkle_leaf",
+      "injected": 1,
+      "detected": 1,
+      "missed": 0,
+      "false_positives_clean": 0
+    },
+    {
+      "class": "wrong_index",
+      "injected": 1,
+      "detected": 1,
+      "missed": 0,
+      "false_positives_clean": 0
+    },
+    {
+      "class": "wrong_root",
+      "injected": 1,
+      "detected": 1,
+      "missed": 0,
+      "false_positives_clean": 0
+    }
+  ],
+  "origin_falsehood_detected": 0,
+  "boundary_preserved": true
+}
