@@ -309,8 +309,25 @@ fn cmd_reproduce() -> Result<(), String> {
     }
     println!("  [ok]  tea.worked_example.v1");
 
+    // 3. study/simstudy_v1.json — synthetic-population study at fixed inputs.
+    let path = vectors.join("study").join("simstudy_v1.json");
+    let want = fs::read_to_string(&path).map_err(|e| format!("read {}: {e}", path.display()))?;
+    let v = tee_simstudy::run(tee_simstudy::SimStudyInputs {
+        m_invoices: 200,
+        inclusion_sample: 64,
+        selective_sample: 64,
+    });
+    let have = tee_simstudy::to_json(&v);
+    if want != have {
+        return Err("study.simstudy.v1 mismatch (re-run simstudy and diff)".into());
+    }
+    println!(
+        "  [ok]  study.simstudy.v1 (M={}, inclusion={}/{}, selective={}/{}, all in-scope faults detected)",
+        v.m_invoices, v.inclusion_detected, v.inclusion_sample, v.selective_detected, v.selective_sample,
+    );
+
     println!();
-    println!("reproduce passed: 2 committed vector(s) match");
+    println!("reproduce passed: 3 committed vector(s) match");
     Ok(())
 }
 

@@ -5,8 +5,9 @@
 //!
 //! All curve operations are referred to as operations on **the BSV curve**.
 //! Implementation uses the pure-Rust k256 crate (RustCrypto, no external chain
-//! attribution); the `schnorr` feature is deliberately disabled so no
-//! chain-fork signature scheme code compiles into this workspace.
+//! attribution) with `default-features = false` and an explicit feature
+//! whitelist (`ecdh`, `ecdsa`, `sha256`, `arithmetic`, `alloc`); nothing
+//! outside that whitelist compiles into this workspace.
 //!
 //! ECDSA signing uses the deterministic nonce generation of RFC 6979 with the
 //! low-S canonicalisation enforced at the API surface.

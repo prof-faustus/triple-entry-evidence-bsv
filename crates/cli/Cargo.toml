@@ -24,3 +24,4 @@ tee-merkle = { path = "../merkle" }
 tee-proofstore = { path = "../proofstore" }
 tee-anchor = { path = "../anchor" }
 tee-disclosure = { path = "../disclosure" }
+tee-simstudy = { path = "../simstudy" }

@@ -21,8 +21,8 @@ repository = "https://github.com/prof-faustus/triple-entry-evidence-bsv"
 
 [workspace.dependencies]
 # Curve arithmetic and ECDSA / ECDH on the BSV curve.
-# Pure-Rust, RustCrypto, no external chain attribution. The `schnorr` feature
-# is deliberately disabled so no chain-fork signature scheme code compiles in.
+# Pure-Rust, RustCrypto, no external chain attribution. Default features are
+# off; only the explicit feature whitelist below compiles in.
 k256 = { version = "0.13", default-features = false, features = ["ecdh", "ecdsa", "sha256", "arithmetic", "alloc"] }
 ecdsa = { version = "0.16", default-features = false }
 elliptic-curve = { version = "0.13", default-features = false, features = ["arithmetic"] }

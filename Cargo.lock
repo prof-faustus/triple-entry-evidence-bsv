@@ -546,6 +546,7 @@ dependencies = [
  "tee-disclosure",
  "tee-merkle",
  "tee-proofstore",
+ "tee-simstudy",
  "tee-tea",
  "thiserror",
 ]

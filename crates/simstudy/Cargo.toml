@@ -7,6 +7,9 @@ license.workspace = true
 repository.workspace = true
 description = "Synthetic-population study: TEA notes anchored on BSV with fault injection and reconciliation."
 
+[lib]
+path = "src/lib.rs"
+
 [[bin]]
 name = "tea-bsv-simstudy"
 path = "src/main.rs"

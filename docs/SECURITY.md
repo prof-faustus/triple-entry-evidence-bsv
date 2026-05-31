@@ -17,7 +17,7 @@ The protocol covers three concrete threats:
 
 ## Curve choice
 
-All curve operations are stated as operations on **the BSV curve**. The arithmetic is provided by the pure-Rust `k256` crate (RustCrypto). The `schnorr` feature is deliberately disabled so no chain-fork signature scheme code compiles in.
+All curve operations are stated as operations on **the BSV curve**. The arithmetic is provided by the pure-Rust `k256` crate (RustCrypto), with `default-features = false` and an explicit feature whitelist (`ecdh`, `ecdsa`, `sha256`, `arithmetic`, `alloc`). Nothing outside that whitelist compiles in.
 
 ## Determinism guarantees
 

@@ -20,7 +20,7 @@ Decisions are recorded one per section, in the order they were made. Each has a 
 
 ## D-003 — Curve crate: k256 with default features off
 **Decision:** Use the pure-Rust `k256` crate with `default-features = false` and only `ecdh`, `ecdsa`, `sha256`, `arithmetic`, `alloc` enabled. The crate is referred to throughout the codebase as providing **the BSV curve**.
-**Rationale:** `k256` is published by RustCrypto, has no chain-ecosystem dependencies, and exposes a neutral surface for scalar/point arithmetic, ECDSA, and ECDH. With `schnorr` disabled no chain-fork signature scheme code compiles in.
+**Rationale:** `k256` is published by RustCrypto, has no chain-ecosystem dependencies, and exposes a neutral surface for scalar/point arithmetic, ECDSA, and ECDH. The explicit feature whitelist keeps optional surfaces out of the build.
 **Alternatives rejected:** Other Rust bindings for the same curve either pull in chain-ecosystem packages or wrap C libraries with chain-ecosystem framing.
 
 ---
