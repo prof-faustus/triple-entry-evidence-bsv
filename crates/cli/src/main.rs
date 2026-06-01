@@ -25,7 +25,9 @@ use std::fs;
 use std::path::PathBuf;
 use tee_anchor::{build_batch, build_inclusion_proof, verify_inclusion, AnchoredBatch};
 use tee_bsv::{double_sha256, Hash};
-use tee_bsvcurve::BsvScalar;
+use tee_bsvcurve::{
+    hkdf_expand_one_block, hkdf_extract, sha256, BsvPoint, BsvScalar,
+};
 use tee_disclosure::{issue_disclosure, verify_disclosure};
 use tee_merkle::MerkleProof;
 use tee_proofstore::{InOrOut, IndexKey, ProofStore, ReconstructionMode};
@@ -104,6 +106,27 @@ enum Cmd {
         #[arg(long)]
         out: PathBuf,
     },
+    /// Derive the one-time shared payment public key PK_once = M_payee + t*G
+    /// from the additive-tweak scheme (04 §4.20-4.28). Emits ONLY public values
+    /// (derived_pubkey, salt_commitment, A/B ordering); never S, t, salt_det, or
+    /// any private scalar (REQ-WIRE-0141).
+    DeriveSharedAddress {
+        /// Deriving party's master private scalar (32-byte hex, demo backend).
+        #[arg(long)]
+        sk_hex: String,
+        /// The OTHER party's master public key for ECDH (33-byte compressed hex).
+        #[arg(long)]
+        remote_pub_hex: String,
+        /// M_payee — the tweak target whose key becomes PK_once (33-byte hex).
+        #[arg(long)]
+        payee_pub_hex: String,
+        /// The deterministic-CBOR derivation context DC (hex), built by the caller.
+        #[arg(long)]
+        dc_hex: String,
+        /// Salt rule: "context" (salt=SHA256(DC)) or "shared-secret" (salt=SHA256(0x53||S)).
+        #[arg(long, default_value = "context")]
+        salt_rule: String,
+    },
 }
 
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -166,6 +189,13 @@ fn main() {
             nonce_hex,
             &out,
         ),
+        Cmd::DeriveSharedAddress {
+            sk_hex,
+            remote_pub_hex,
+            payee_pub_hex,
+            dc_hex,
+            salt_rule,
+        } => cmd_derive_shared_address(sk_hex, remote_pub_hex, payee_pub_hex, dc_hex, salt_rule),
     };
     if let Err(e) = r {
         eprintln!("error: {e}");
@@ -568,6 +598,91 @@ fn cmd_disclose(
     )
     .map_err(|e| e.to_string())?;
     println!("disclose: wrote {}", out.display());
+    Ok(())
+}
+
+fn decode_32(label: &str, s: &str) -> Result<[u8; 32], String> {
+    let v = hex::decode(s).map_err(|e| format!("{label}: {e}"))?;
+    if v.len() != 32 {
+        return Err(format!("{label} must be 32 bytes, got {}", v.len()));
+    }
+    let mut a = [0u8; 32];
+    a.copy_from_slice(&v);
+    Ok(a)
+}
+
+fn decode_33(label: &str, s: &str) -> Result<[u8; 33], String> {
+    let v = hex::decode(s).map_err(|e| format!("{label}: {e}"))?;
+    if v.len() != 33 {
+        return Err(format!("{label} must be 33 bytes, got {}", v.len()));
+    }
+    let mut a = [0u8; 33];
+    a.copy_from_slice(&v);
+    Ok(a)
+}
+
+/// One-time shared-address derivation (04 §4.20-4.28). Public outputs only.
+fn cmd_derive_shared_address(
+    sk_hex: String,
+    remote_pub_hex: String,
+    payee_pub_hex: String,
+    dc_hex: String,
+    salt_rule: String,
+) -> Result<(), String> {
+    let sk = BsvScalar::from_bytes(&decode_32("sk_hex", &sk_hex)?).map_err(|e| e.to_string())?;
+    let remote_pub =
+        BsvPoint::from_compressed(&decode_33("remote_pub_hex", &remote_pub_hex)?).map_err(|e| e.to_string())?;
+    let payee_pub =
+        BsvPoint::from_compressed(&decode_33("payee_pub_hex", &payee_pub_hex)?).map_err(|e| e.to_string())?;
+    let dc = hex::decode(&dc_hex).map_err(|e| format!("dc_hex: {e}"))?;
+
+    // Step 2: ECDH shared secret S = SHA-256(compressed(m_local * M_remote)).
+    let p_s = remote_pub.mul_scalar(&sk);
+    let s = sha256(&p_s.to_compressed());
+
+    // Step 4: deterministic salt by the active rule.
+    let salt_det = match salt_rule.as_str() {
+        "context" => sha256(&dc),
+        "shared-secret" => {
+            let mut buf = Vec::with_capacity(1 + 32);
+            buf.push(0x53);
+            buf.extend_from_slice(&s);
+            sha256(&buf)
+        }
+        other => return Err(format!("unknown salt_rule {other:?} (context|shared-secret)")),
+    };
+    let salt_commitment = sha256(&salt_det);
+
+    // Step 5: tweak t = HKDF-SHA256(ikm=S, salt=salt_det, info=DC) reduced mod n.
+    let prk = hkdf_extract(&salt_det, &s);
+    let okm = hkdf_expand_one_block(&prk, &dc);
+    let t = BsvScalar::from_bytes_reduce(&okm).map_err(|_| {
+        "derived tweak is zero; caller must increment payment_index and rebuild DC".to_string()
+    })?;
+    let pk_once = payee_pub.add(&t.mul_base());
+
+    // canonical A/B ordering over the two master public keys (Step 1), for transparency.
+    let (a, b) = {
+        let m_remote = remote_pub.to_compressed();
+        let m_payee = payee_pub.to_compressed();
+        if m_payee <= m_remote { (m_payee, m_remote) } else { (m_remote, m_payee) }
+    };
+
+    // Public outputs ONLY — never S, t, salt_det, or any private scalar (REQ-WIRE-0141).
+    #[derive(serde::Serialize)]
+    struct Out {
+        derived_pubkey_hex: String,
+        salt_commitment_hex: String,
+        master_pub_a_hex: String,
+        master_pub_b_hex: String,
+    }
+    let out = Out {
+        derived_pubkey_hex: hex::encode(pk_once.to_compressed()),
+        salt_commitment_hex: hex::encode(salt_commitment),
+        master_pub_a_hex: hex::encode(a),
+        master_pub_b_hex: hex::encode(b),
+    };
+    println!("{}", serde_json::to_string_pretty(&out).map_err(|e| e.to_string())?);
     Ok(())
 }
 

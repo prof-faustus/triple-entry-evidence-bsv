@@ -77,6 +77,19 @@ impl BsvScalar {
         be.copy_from_slice(&bytes);
         BsvScalar::from_bytes(&be)
     }
+
+    /// Reduce 32 big-endian bytes modulo the curve order n: `t = int(bytes) mod n`.
+    /// Used by the additive-tweak derivation (HKDF output → scalar). Returns
+    /// `Err(InvalidScalar)` only if the reduced value is zero (probability ~2^-256).
+    pub fn from_bytes_reduce(bytes: &[u8; SCALAR_BYTES]) -> Result<Self, CurveError> {
+        use k256::elliptic_curve::ops::Reduce;
+        let n = k256::U256::from_be_slice(bytes);
+        let s = <Scalar as Reduce<k256::U256>>::reduce(n);
+        if bool::from(s.is_zero()) {
+            return Err(CurveError::InvalidScalar);
+        }
+        Ok(BsvScalar(s))
+    }
 }
 
 impl BsvPoint {
@@ -132,6 +145,16 @@ pub fn ecdh_shared_x(sk_self: &BsvScalar, pk_other: &BsvPoint) -> [u8; SCALAR_BY
     let mut out = [0u8; SCALAR_BYTES];
     out.copy_from_slice(&raw[..]);
     out
+}
+
+/// Single SHA-256 over arbitrary bytes (used for the ECDH secret S and salts).
+pub fn sha256(data: &[u8]) -> [u8; 32] {
+    let mut h = Sha256::new();
+    h.update(data);
+    let out = h.finalize();
+    let mut buf = [0u8; 32];
+    buf.copy_from_slice(&out);
+    buf
 }
 
 /// HKDF-SHA256 extract: PRK = HMAC-SHA256(salt, IKM).
