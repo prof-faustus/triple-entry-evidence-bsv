@@ -25,3 +25,7 @@ tee-proofstore = { path = "../proofstore" }
 tee-anchor = { path = "../anchor" }
 tee-disclosure = { path = "../disclosure" }
 tee-simstudy = { path = "../simstudy" }
+# Address encoding (P2PKH base58check). RustCrypto RIPEMD-160 + generic base58;
+# no chain attribution, consistent with the workspace dependency policy.
+ripemd = "0.1"
+bs58 = { version = "0.5", features = ["check"] }

@@ -126,6 +126,9 @@ enum Cmd {
         /// Salt rule: "context" (salt=SHA256(DC)) or "shared-secret" (salt=SHA256(0x53||S)).
         #[arg(long, default_value = "context")]
         salt_rule: String,
+        /// Network selector for the P2PKH address version byte.
+        #[arg(long, default_value = "regtest")]
+        network: String,
     },
 }
 
@@ -195,7 +198,8 @@ fn main() {
             payee_pub_hex,
             dc_hex,
             salt_rule,
-        } => cmd_derive_shared_address(sk_hex, remote_pub_hex, payee_pub_hex, dc_hex, salt_rule),
+            network,
+        } => cmd_derive_shared_address(sk_hex, remote_pub_hex, payee_pub_hex, dc_hex, salt_rule, network),
     };
     if let Err(e) = r {
         eprintln!("error: {e}");
@@ -628,7 +632,9 @@ fn cmd_derive_shared_address(
     payee_pub_hex: String,
     dc_hex: String,
     salt_rule: String,
+    network: String,
 ) -> Result<(), String> {
+    use ripemd::{Digest, Ripemd160};
     let sk = BsvScalar::from_bytes(&decode_32("sk_hex", &sk_hex)?).map_err(|e| e.to_string())?;
     let remote_pub =
         BsvPoint::from_compressed(&decode_33("remote_pub_hex", &remote_pub_hex)?).map_err(|e| e.to_string())?;
@@ -661,6 +667,20 @@ fn cmd_derive_shared_address(
     })?;
     let pk_once = payee_pub.add(&t.mul_base());
 
+    // Step 6: P2PKH address = base58check(version || HASH160(PK_once)). No P2SH.
+    let version_byte: u8 = match network.as_str() {
+        "mainnet" => 0x00,
+        "testnet" | "regtest" => 0x6f,
+        other => return Err(format!("unknown network {other:?} (mainnet|testnet|regtest)")),
+    };
+    let pk_compressed = pk_once.to_compressed();
+    let h160 = {
+        let mut r = Ripemd160::new();
+        r.update(sha256(&pk_compressed));
+        r.finalize()
+    };
+    let address_text = bs58::encode(h160).with_check_version(version_byte).into_string();
+
     // canonical A/B ordering over the two master public keys (Step 1), for transparency.
     let (a, b) = {
         let m_remote = remote_pub.to_compressed();
@@ -672,12 +692,14 @@ fn cmd_derive_shared_address(
     #[derive(serde::Serialize)]
     struct Out {
         derived_pubkey_hex: String,
+        address_text: String,
         salt_commitment_hex: String,
         master_pub_a_hex: String,
         master_pub_b_hex: String,
     }
     let out = Out {
-        derived_pubkey_hex: hex::encode(pk_once.to_compressed()),
+        derived_pubkey_hex: hex::encode(pk_compressed),
+        address_text,
         salt_commitment_hex: hex::encode(salt_commitment),
         master_pub_a_hex: hex::encode(a),
         master_pub_b_hex: hex::encode(b),
