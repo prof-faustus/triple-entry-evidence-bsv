@@ -33,7 +33,7 @@ use tee_merkle::MerkleProof;
 use tee_proofstore::{InOrOut, IndexKey, ProofStore, ReconstructionMode};
 use tee_tea::{
     build_note_body, commit_one, derive_key_material, derive_subkey, sign_note, verify_note,
-    NoteBuilderInputs, NoteKind, SignedNote,
+    Field, NoteBuilderInputs, NoteKind, SignedNote,
 };
 
 #[derive(Parser)]
@@ -130,6 +130,30 @@ enum Cmd {
         #[arg(long, default_value = "regtest")]
         network: String,
     },
+    /// Build a signed invoice or payment note: per-field commitments over the
+    /// canonical field values, the linkage tag(s), the note body, and the
+    /// signature. Field VALUES stay private (only labels appear in the output);
+    /// a payment note's L_pay binds to the linked invoice's L_inv under the same S.
+    BuildNote {
+        /// Issuer's signing sub-key scalar (32-byte hex, demo backend).
+        #[arg(long)]
+        sk_hex: String,
+        /// Counterparty's sub-key public point (33-byte compressed hex).
+        #[arg(long)]
+        counterparty_pub_hex: String,
+        /// Note identifier (binds the per-field key derivation).
+        #[arg(long)]
+        note_id: String,
+        /// Note kind: "invoice" or "payment".
+        #[arg(long, default_value = "invoice")]
+        kind: String,
+        /// JSON file: an array of {"label":..., "value":...} field objects.
+        #[arg(long)]
+        fields_file: PathBuf,
+        /// Output path for the SignedNote JSON.
+        #[arg(long)]
+        out: PathBuf,
+    },
 }
 
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -200,6 +224,14 @@ fn main() {
             salt_rule,
             network,
         } => cmd_derive_shared_address(sk_hex, remote_pub_hex, payee_pub_hex, dc_hex, salt_rule, network),
+        Cmd::BuildNote {
+            sk_hex,
+            counterparty_pub_hex,
+            note_id,
+            kind,
+            fields_file,
+            out,
+        } => cmd_build_note(sk_hex, counterparty_pub_hex, note_id, kind, &fields_file, &out),
     };
     if let Err(e) = r {
         eprintln!("error: {e}");
@@ -705,6 +737,83 @@ fn cmd_derive_shared_address(
         master_pub_b_hex: hex::encode(b),
     };
     println!("{}", serde_json::to_string_pretty(&out).map_err(|e| e.to_string())?);
+    Ok(())
+}
+
+/// Build a signed invoice/payment note (5.3.3/5.3.4). Field values stay private.
+fn cmd_build_note(
+    sk_hex: String,
+    counterparty_pub_hex: String,
+    note_id: String,
+    kind: String,
+    fields_file: &PathBuf,
+    out: &PathBuf,
+) -> Result<(), String> {
+    let sk = BsvScalar::from_bytes(&decode_32("sk_hex", &sk_hex)?).map_err(|e| e.to_string())?;
+    let cp = BsvPoint::from_compressed(&decode_33("counterparty_pub_hex", &counterparty_pub_hex)?)
+        .map_err(|e| e.to_string())?;
+    let note_kind = match kind.as_str() {
+        "invoice" => NoteKind::Invoice,
+        "payment" => NoteKind::Payment,
+        other => return Err(format!("unknown kind {other:?} (invoice|payment)")),
+    };
+    let fields: Vec<Field> = serde_json::from_str(
+        &fs::read_to_string(fields_file).map_err(|e| e.to_string())?,
+    )
+    .map_err(|e| format!("fields_file: {e}"))?;
+
+    let mat = derive_key_material(&sk, &cp);
+    // invoice: primary=L_inv, secondary=zeros; payment: primary=L_pay, secondary=L_inv (linkage).
+    let (primary_tag, secondary_tag) = match note_kind {
+        NoteKind::Invoice => (mat.l_inv, [0u8; 32]),
+        NoteKind::Payment => (mat.l_pay, mat.l_inv),
+    };
+    let commitments: Vec<[u8; 32]> = fields
+        .iter()
+        .map(|f| commit_one(&mat.k_master, &note_id, &f.label, &f.value).1)
+        .collect();
+
+    let issuer_pk = sk.mul_base();
+    let body = build_note_body(&NoteBuilderInputs {
+        kind: note_kind,
+        version: 1,
+        primary_tag,
+        secondary_tag,
+        issuer_pk,
+        counterparty_pk: cp,
+        commitments: &commitments,
+    });
+    let (body_hash, sig) = sign_note(&sk, &body);
+
+    let note = SignedNote {
+        kind: note_kind,
+        version: 1,
+        note_id: note_id.clone(),
+        primary_tag_hex: hex::encode(primary_tag),
+        secondary_tag_hex: hex::encode(secondary_tag),
+        issuer_pk_hex: hex::encode(issuer_pk.to_compressed()),
+        counterparty_pk_hex: hex::encode(cp.to_compressed()),
+        // labels only — values stay private until disclosed (REQ-WIRE-0070).
+        fields_pub: fields
+            .iter()
+            .map(|f| Field {
+                label: f.label.clone(),
+                value: String::new(),
+            })
+            .collect(),
+        commitments_hex: commitments.iter().map(hex::encode).collect(),
+        body_hex: hex::encode(&body),
+        body_hash_hex: hex::encode(body_hash),
+        signature_hex: hex::encode(sig),
+    };
+    fs::write(out, serde_json::to_string_pretty(&note).map_err(|e| e.to_string())?)
+        .map_err(|e| e.to_string())?;
+    println!(
+        "build-note: wrote {} (kind={kind}, fields={}, l_tag={})",
+        out.display(),
+        fields.len(),
+        hex::encode(primary_tag)
+    );
     Ok(())
 }
 
